@@ -395,6 +395,23 @@ For your own data:
 * Scalar data: ``([case,] time, source)``
 * If case dimension present: mean is computed automatically
 
+Using MNE VolVectorSourceEstimate
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For MNE volume vector source estimates, pass the source estimate together with
+the matching source space. The source estimate provides vector data and time
+values; the source space provides the 3D coordinates needed for projections.
+
+.. code-block:: python
+
+   import mne
+   from liveneuro import LiveNeuro
+
+   stc = mne.read_source_estimate("sample-vol-vector")
+   src = mne.read_source_spaces("sample-vol-src.fif")
+
+   viz = LiveNeuro(y=stc, src=src)
+
 
 Running the Application
 -----------------------

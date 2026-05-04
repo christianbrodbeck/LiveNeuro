@@ -2,20 +2,26 @@
 LiveNeuro core module.
 
 This module provides the core LiveNeuro class, an interactive 2D visualization
-interface for Eelbrain's NDVar data structures. It transforms neuroscience data
-into explorable brain maps and time-series plots.
+interface for Eelbrain's NDVar and MNE source estimate data structures. It
+transforms neuroscience data into explorable brain maps and time-series plots.
 """
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import dash
 import numpy as np
 from eelbrain import NDVar
 
-from ._data_loader_helper import BrainData, DataLoaderHelper
+from ._data_loader_helper import BrainData, DataLoaderHelper, MneSourceSpacesLike
 from ._plot_factory_helper import PlotFactoryHelper
 from ._layout_helper import LayoutBuilderHelper, LAYOUTS
 from ._app_controller_helper import AppControllerHelper
+from ._sample_data import SampleDataNDVar
+
+if TYPE_CHECKING:
+    from mne import VolVectorSourceEstimate
 
 
 class LiveNeuro:
@@ -31,7 +37,8 @@ class LiveNeuro:
         If ``y`` has a case dimension, the mean is plotted.
         If ``y`` has a space dimension, the norm is plotted.
         If None, uses MNE sample data for demonstration.
-        Pass an Eelbrain NDVar or the sample data object returned by
+        Pass an Eelbrain NDVar, an MNE ``VolVectorSourceEstimate`` with
+        ``src``, or the sample data object returned by
         :func:`liveneuro.create_sample_brain_data`.
     cmap
         Plotly colorscale for heatmaps. Can be:
@@ -87,6 +94,11 @@ class LiveNeuro:
         If True, shows plot titles and legends (e.g., 'Source Activity Time Series',
         'Source 0', 'Source 1', etc.). If False, hides all titles and legends for a
         cleaner visualization. Default is False.
+    src
+        Matching MNE SourceSpaces object when ``y`` is an
+        ``mne.VolVectorSourceEstimate``. Required for MNE source estimates because
+        the source estimate stores vertex ids while LiveNeuro needs 3D source
+        coordinates.
 
     Notes
     -----
@@ -94,6 +106,7 @@ class LiveNeuro:
 
     - For vector data: NDVar with dimensions ([case,] time, source, space)
     - For scalar data: NDVar with dimensions ([case,] time, source)
+    - For MNE vector volume data: VolVectorSourceEstimate plus matching ``src``
     - If case dimension present: mean across cases is plotted
     - If space dimension present: norm across space is plotted for butterfly plot
     - ``create_sample_brain_data`` returns a minimal NDVar-like object compatible
@@ -102,7 +115,7 @@ class LiveNeuro:
 
     def __init__(
         self,
-        y: NDVar | None = None,
+        y: NDVar | VolVectorSourceEstimate | SampleDataNDVar | None = None,
         cmap: str | list = "YlOrRd",
         vmin: float | None = None,
         vmax: float | None = None,
@@ -113,6 +126,7 @@ class LiveNeuro:
         layout_mode: str = "horizontal",
         display_mode: str = "lyr",
         show_labels: bool = False,
+        src: MneSourceSpacesLike | None = None,
     ):
         """Initialize the visualization app and load data."""
         # Use regular Dash with modern Jupyter integration
@@ -157,11 +171,11 @@ class LiveNeuro:
             ["realtime"] if realtime else []
         )  # Default state for real-time mode
         self.show_labels: bool = show_labels  # Control titles and legends display
-        self.current_layout_config: dict[str, Any] | None = None
+        self.current_layout_config: dict[str, object] | None = None
 
         # Initialize source space attributes
-        self.source_space: Any = None
-        self.parcellation: Any | None = None
+        self.source_space: object | None = None
+        self.parcellation: object | None = None
         self.view_ranges: dict[str, dict[str, list[float]]] = {}
         self.global_vmin: float = 0.0
         self.global_vmax: float = 1.0
@@ -190,8 +204,23 @@ class LiveNeuro:
 
         # Load data (data loader helper responsibility)
         if y is not None:
-            brain_data = self._data_loader.load_ndvar_data(y)
+            if self._data_loader.is_mne_vol_vector_source_estimate(y):
+                brain_data = self._data_loader.load_mne_vol_vector_source_estimate(
+                    y, src
+                )
+            elif src is not None:
+                raise ValueError(
+                    "src can only be used when y is an "
+                    "mne.VolVectorSourceEstimate."
+                )
+            else:
+                brain_data = self._data_loader.load_ndvar_data(y)
         else:
+            if src is not None:
+                raise ValueError(
+                    "src can only be used when y is an "
+                    "mne.VolVectorSourceEstimate."
+                )
             brain_data = self._data_loader.load_source_data()
 
         # Store data model and mirror key attributes for backward compatibility
@@ -273,7 +302,7 @@ class LiveNeuro:
         output_dir: str = "./images",
         time_idx: int | None = None,
         format: str = "png",
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Export plots as image files.
 
         Parameters
@@ -340,6 +369,12 @@ if __name__ == "__main__":
         #     show_max_only=False,
         #     arrow_threshold='auto'  # Only show significant arrows
         # )
+
+        # Method 1b: Pass an MNE volume vector source estimate with source space
+        # import mne
+        # stc = mne.read_source_estimate("example-vl.stc")
+        # src = mne.read_source_spaces("example-vol-src.fif")
+        # viz_2d = LiveNeuro(y=stc, src=src)
 
         # Method 2: Use default MNE sample data with custom options
         viz_2d = LiveNeuro(

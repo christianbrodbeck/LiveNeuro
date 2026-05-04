@@ -2,6 +2,7 @@
 Basic tests for liveneuro package.
 """
 
+import numpy as np
 import pytest
 
 
@@ -98,6 +99,48 @@ def test_viz_creation_with_options():
     assert viz.cmap == "Viridis"
     assert viz.show_max_only is True
     assert viz.arrow_threshold == "auto"
+
+
+def test_viz_creation_with_mne_vol_vector_source_estimate():
+    """Test creating visualization from an MNE VolVectorSourceEstimate-like object."""
+    from liveneuro import LiveNeuro
+
+    class VolVectorSourceEstimate:
+        def __init__(self):
+            self.data = np.arange(36, dtype=float).reshape(3, 3, 4)
+            self.vertices = [np.array([0, 2, 4])]
+            self.times = np.array([0.0, 0.1, 0.2, 0.3])
+
+    rr = np.array(
+        [
+            [-0.02, -0.01, 0.00],
+            [-0.01, 0.00, 0.01],
+            [0.00, 0.01, 0.02],
+            [0.01, 0.02, 0.03],
+            [0.02, 0.03, 0.04],
+        ]
+    )
+    src = [{"rr": rr}]
+
+    viz = LiveNeuro(y=VolVectorSourceEstimate(), src=src, display_mode="ortho")
+
+    assert viz.glass_brain_data.shape == (3, 3, 4)
+    assert viz.butterfly_data.shape == (3, 4)
+    assert np.array_equal(viz.source_coords, rr[[0, 2, 4]])
+    assert np.array_equal(viz.time_values, np.array([0.0, 0.1, 0.2, 0.3]))
+
+
+def test_mne_vol_vector_source_estimate_requires_src():
+    """MNE source estimates need source spaces for source coordinates."""
+    from liveneuro import LiveNeuro
+
+    class VolVectorSourceEstimate:
+        data = np.zeros((2, 3, 3))
+        vertices = [np.array([0, 1])]
+        times = np.array([0.0, 0.1, 0.2])
+
+    with pytest.raises(ValueError, match="src is required"):
+        LiveNeuro(y=VolVectorSourceEstimate())
 
 
 def test_main_class_import():
