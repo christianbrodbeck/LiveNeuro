@@ -30,15 +30,13 @@ classifiers = [
         "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Visualization",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "dash>=2.0.0",
     "plotly>=5.0.0",
@@ -79,7 +77,28 @@ liveneuro = ["data/*.npy", "data/*.json"]
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py310']
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "dash",
+    "dash.*",
+    "eelbrain",
+    "eelbrain.*",
+    "IPython",
+    "IPython.*",
+    "matplotlib",
+    "matplotlib.*",
+    "plotly",
+    "plotly.*",
+    "scipy",
+    "scipy.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

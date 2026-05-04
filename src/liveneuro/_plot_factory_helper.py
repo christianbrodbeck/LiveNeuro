@@ -8,7 +8,7 @@ creation.
 
 import base64
 import io
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -42,9 +42,9 @@ class PlotFactoryHelper:
             The LiveNeuro instance this helper operates on.
         """
         self._viz = viz
-        self._butterfly_cache: Optional[Dict[str, Any]] = None
+        self._butterfly_cache: dict[str, Any] | None = None
 
-    def _get_butterfly_plot_cache(self) -> Dict[str, Any]:
+    def _get_butterfly_plot_cache(self) -> dict[str, Any]:
         """Get cached butterfly plot computations derived from butterfly_data.
 
         This caches computations that are independent of the selected time index,
@@ -95,14 +95,14 @@ class PlotFactoryHelper:
 
     @staticmethod
     def calculate_view_ranges(
-        source_coords: Optional[np.ndarray], brain_views: List[str]
-    ) -> Dict[str, Dict[str, List[float]]]:
+        source_coords: np.ndarray | None, brain_views: list[str]
+    ) -> dict[str, dict[str, list[float]]]:
         """Calculate fixed axis ranges for each brain view to prevent size changes."""
         if source_coords is None:
             return {}
 
         coords = source_coords
-        view_ranges: Dict[str, Dict[str, List[float]]] = {}
+        view_ranges: dict[str, dict[str, list[float]]] = {}
 
         for view_name in brain_views:
             # Get the appropriate coordinate projections for each view
@@ -146,8 +146,10 @@ class PlotFactoryHelper:
 
     @staticmethod
     def calculate_global_colormap_range(
-        glass_brain_data: Optional[np.ndarray], user_vmax: Optional[float]
-    ) -> Tuple[float, float]:
+        glass_brain_data: np.ndarray | None,
+        user_vmin: float | None,
+        user_vmax: float | None,
+    ) -> tuple[float, float]:
         """Calculate global min/max activity across all time points for fixed colormap."""
         data_max = 1.0
 
@@ -159,17 +161,17 @@ class PlotFactoryHelper:
 
             data_max = float(np.max(all_magnitudes))
 
-        global_vmin = 0.0
+        global_vmin = 0.0 if user_vmin is None else float(user_vmin)
         global_vmax = data_max if user_vmax is None else float(user_vmax)
 
         # Ensure we have a valid range (avoid zero range)
-        if global_vmax - global_vmin < 1e-10:
-            global_vmax = global_vmin + 1.0
+        if global_vmax <= global_vmin:
+            raise RuntimeError(f"{global_vmax=}, {global_vmin=}")
 
         return global_vmin, global_vmax
 
     def create_butterfly_plot(
-        self, selected_time_idx: int = 0, figure_height: Optional[int] = None
+        self, selected_time_idx: int = 0, figure_height: int | None = None
     ) -> go.Figure:
         """Create butterfly plot figure (internal method).
 
@@ -331,8 +333,8 @@ class PlotFactoryHelper:
         return fig
 
     def create_2d_brain_projections_plotly(
-        self, time_idx: int = 0, source_idx: Optional[int] = None
-    ) -> Dict[str, go.Figure]:
+        self, time_idx: int = 0, source_idx: int | None = None
+    ) -> dict[str, go.Figure]:
         """Create 2D brain projections using Plotly scatter plots (internal method)."""
         if (
             self._viz.glass_brain_data is None
@@ -445,11 +447,11 @@ class PlotFactoryHelper:
         coords: np.ndarray,
         activity: np.ndarray,
         time_value: float,
-        selected_source: Optional[int] = None,
+        selected_source: int | None = None,
         show_colorbar: bool = True,
-        zmin: float = None,
-        zmax: float = None,
-        figure_height: Optional[int] = None,
+        zmin: float | None = None,
+        zmax: float | None = None,
+        figure_height: int | None = None,
     ) -> go.Figure:
         """Create a Plotly plot for a specific brain view with vector arrows.
 
@@ -461,13 +463,15 @@ class PlotFactoryHelper:
         # Show all data without filtering
         active_coords = coords
         active_activity = activity
-        active_indices = np.arange(len(coords))
+        active_indices: np.ndarray = np.arange(len(coords))
 
         # Create Plotly figure
         fig = go.Figure()
 
         # Get time index for vector components
-        time_idx = np.argmin(np.abs(self._viz.time_values - time_value))
+        time_values = self._viz.time_values
+        assert time_values is not None
+        time_idx = np.argmin(np.abs(time_values - time_value))
 
         # Get vector components for active sources
         if self._viz.glass_brain_data is not None and len(active_indices) > 0:
@@ -477,29 +481,35 @@ class PlotFactoryHelper:
             active_vectors = None
 
         # Check if we have vector data (3D) or scalar data (1D)
-        has_vector_data = active_vectors is not None and active_vectors.shape[1] == 3
+        vector_data = (
+            active_vectors
+            if active_vectors is not None and active_vectors.shape[1] == 3
+            else None
+        )
 
         # Project to 2D based on view
+        u_vectors: np.ndarray | None = None
+        v_vectors: np.ndarray | None = None
         if view_name == "axial":  # Z view (X vs Y)
             x_coords = active_coords[:, 0]
             y_coords = active_coords[:, 1]
-            if has_vector_data:
-                u_vectors = active_vectors[:, 0]  # X components
-                v_vectors = active_vectors[:, 1]  # Y components
+            if vector_data is not None:
+                u_vectors = vector_data[:, 0]  # X components
+                v_vectors = vector_data[:, 1]  # Y components
             title = None
         elif view_name == "sagittal":  # X view (Y vs Z)
             x_coords = active_coords[:, 1]
             y_coords = active_coords[:, 2]
-            if has_vector_data:
-                u_vectors = active_vectors[:, 1]  # Y components
-                v_vectors = active_vectors[:, 2]  # Z components
+            if vector_data is not None:
+                u_vectors = vector_data[:, 1]  # Y components
+                v_vectors = vector_data[:, 2]  # Z components
             title = None
         elif view_name == "coronal":  # Y view (X vs Z)
             x_coords = active_coords[:, 0]
             y_coords = active_coords[:, 2]
-            if has_vector_data:
-                u_vectors = active_vectors[:, 0]  # X components
-                v_vectors = active_vectors[:, 2]  # Z components
+            if vector_data is not None:
+                u_vectors = vector_data[:, 0]  # X components
+                v_vectors = vector_data[:, 2]  # Z components
             title = None
         elif (
             view_name == "left_hemisphere"
@@ -510,15 +520,15 @@ class PlotFactoryHelper:
                 active_coords = active_coords[left_mask]
                 active_activity = active_activity[left_mask]
                 active_indices = active_indices[left_mask]
-                if has_vector_data:
-                    active_vectors = active_vectors[left_mask]
+                if vector_data is not None:
+                    vector_data = vector_data[left_mask]
 
             # For left hemisphere, flip Y coordinates to match neuroimaging convention
             x_coords = -active_coords[:, 1]  # Negative Y coordinates (flipped)
             y_coords = active_coords[:, 2]  # Z coordinates
-            if has_vector_data:
-                u_vectors = -active_vectors[:, 1]  # Negative Y components (flipped)
-                v_vectors = active_vectors[:, 2]  # Z components
+            if vector_data is not None:
+                u_vectors = -vector_data[:, 1]  # Negative Y components (flipped)
+                v_vectors = vector_data[:, 2]  # Z components
             title = None
         elif (
             view_name == "right_hemisphere"
@@ -529,23 +539,27 @@ class PlotFactoryHelper:
                 active_coords = active_coords[right_mask]
                 active_activity = active_activity[right_mask]
                 active_indices = active_indices[right_mask]
-                if has_vector_data:
-                    active_vectors = active_vectors[right_mask]
+                if vector_data is not None:
+                    vector_data = vector_data[right_mask]
 
             x_coords = active_coords[:, 1]  # Y coordinates
             y_coords = active_coords[:, 2]  # Z coordinates
-            if has_vector_data:
-                u_vectors = active_vectors[:, 1]  # Y components
-                v_vectors = active_vectors[:, 2]  # Z components
+            if vector_data is not None:
+                u_vectors = vector_data[:, 1]  # Y components
+                v_vectors = vector_data[:, 2]  # Z components
             title = None
         else:
             # Fallback for unknown view types
             x_coords = active_coords[:, 0]
             y_coords = active_coords[:, 1]
-            if has_vector_data:
-                u_vectors = active_vectors[:, 0]
-                v_vectors = active_vectors[:, 1]
+            if vector_data is not None:
+                u_vectors = vector_data[:, 0]
+                v_vectors = vector_data[:, 1]
             title = f"Unknown View: {view_name}"
+
+        if vector_data is not None:
+            assert u_vectors is not None
+            assert v_vectors is not None
 
         if len(active_coords) > 0:
             # Create data-driven grid using unique coordinate values
@@ -569,8 +583,8 @@ class PlotFactoryHelper:
                     y_edges.append(y_val - y_spacing)
                 y_edges.append(y_val + y_spacing)
 
-            x_edges = np.array(x_edges)
-            y_edges = np.array(y_edges)
+            x_edges_array = np.array(x_edges)
+            y_edges_array = np.array(y_edges)
 
             # Use binned_statistic_2d to get maximum value per bin
             H_max, x_edges_used, y_edges_used, _ = binned_statistic_2d(
@@ -578,7 +592,7 @@ class PlotFactoryHelper:
                 y_coords,
                 active_activity,
                 statistic="max",  # Take maximum value in each bin
-                bins=[x_edges, y_edges],
+                bins=[x_edges_array, y_edges_array],
             )
 
             # Use grid center points for display
@@ -619,18 +633,20 @@ class PlotFactoryHelper:
             fig.update_layout(plot_bgcolor="white", paper_bgcolor="white")
 
             # Add vector arrows if we have vector data (not scalar data)
-            if has_vector_data:
+            if vector_data is not None:
+                assert u_vectors is not None
+                assert v_vectors is not None
                 # Convert relative arrow_scale (user parameter, default=1.0) to absolute scale
                 # Base scale of 0.025 provides good default visualization
                 arrow_scale = self._viz.arrow_scale * 0.025
 
                 # Calculate arrow magnitudes for filtering
-                arrow_magnitudes = np.linalg.norm(active_vectors, axis=1)
+                arrow_magnitudes = np.linalg.norm(vector_data, axis=1)
 
                 # Determine threshold for showing arrows
                 if self._viz.arrow_threshold is None:
                     # Show all arrows
-                    show_arrow_mask = np.ones(len(active_vectors), dtype=bool)
+                    show_arrow_mask = np.ones(vector_data.shape[0], dtype=np.bool_)
                 elif self._viz.arrow_threshold == "auto":
                     # Use 10% of maximum magnitude as threshold
                     threshold_value = 0.1 * np.max(arrow_magnitudes)
@@ -645,7 +661,7 @@ class PlotFactoryHelper:
                 # Multiple 3D sources can project to the same 2D position, so we need
                 # to select one. We choose the source with highest activity because
                 # that's what we display in the hover and heatmap.
-                position_to_max_idx = {}
+                position_to_max_idx: dict[tuple[float, float], int] = {}
 
                 # Check all source points
                 for i in range(len(active_coords)):
@@ -655,7 +671,10 @@ class PlotFactoryHelper:
 
                     # Create position key (rounded to avoid floating point precision
                     # issues)
-                    pos_key = (round(x_coords[i], 6), round(y_coords[i], 6))
+                    pos_key = (
+                        round(float(x_coords[i]), 6),
+                        round(float(y_coords[i]), 6),
+                    )
 
                     # If this position hasn't been seen, or current source has larger
                     # ACTIVITY (3D magnitude), select it.
@@ -713,15 +732,17 @@ class PlotFactoryHelper:
                     )
 
                     # Highlight selected source arrow if vectors available
-                    if has_vector_data:
+                    if vector_data is not None:
+                        assert u_vectors is not None
+                        assert v_vectors is not None
                         # Check if the selected source arrow meets the threshold
-                        selected_arrow_magnitude = np.linalg.norm(active_vectors[pos])
+                        selected_arrow_magnitude = np.linalg.norm(vector_data[pos])
                         show_selected_arrow = True
 
                         if self._viz.arrow_threshold is not None:
                             if self._viz.arrow_threshold == "auto":
                                 threshold_value = 0.1 * np.max(
-                                    np.linalg.norm(active_vectors, axis=1)
+                                    np.linalg.norm(vector_data, axis=1)
                                 )
                             else:
                                 threshold_value = float(self._viz.arrow_threshold)
@@ -826,7 +847,7 @@ class PlotFactoryHelper:
         color: str = "black",
         width: int = 1,
         size: float = 0.8,
-        activity_values: Optional[np.ndarray] = None,
+        activity_values: np.ndarray | None = None,
     ) -> None:
         """Create arrows using Plotly's figure_factory quiver plot.
 
@@ -893,7 +914,7 @@ class PlotFactoryHelper:
         color: str = "black",
         width: int = 1,
         size: float = 0.8,
-        activity_values: Optional[np.ndarray] = None,
+        activity_values: np.ndarray | None = None,
     ) -> None:
         """Create arrows using annotation-based method (fallback for quiver).
 
