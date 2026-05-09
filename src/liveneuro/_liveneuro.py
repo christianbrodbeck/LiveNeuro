@@ -9,7 +9,7 @@ transforms neuroscience data into explorable brain maps and time-series plots.
 from __future__ import annotations
 
 import dash
-import mne
+import mne  # type: ignore[import-untyped]
 import numpy as np
 from eelbrain import NDVar
 

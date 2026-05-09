@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import mne
+import mne  # type: ignore[import-untyped]
 import numpy as np
 from eelbrain import NDVar, datasets
 

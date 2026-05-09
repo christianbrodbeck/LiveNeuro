@@ -752,7 +752,7 @@ class PlotFactoryHelper:
                                 )
                             else:
                                 threshold_value = float(self._viz.arrow_threshold)
-                            show_selected_arrow = (
+                            show_selected_arrow = bool(
                                 selected_arrow_magnitude > threshold_value
                             )
 
