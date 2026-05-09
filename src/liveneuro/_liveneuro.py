@@ -8,20 +8,16 @@ transforms neuroscience data into explorable brain maps and time-series plots.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import dash
+import mne
 import numpy as np
 from eelbrain import NDVar
 
-from ._data_loader_helper import BrainData, DataLoaderHelper, MneSourceSpacesLike
+from ._data_loader_helper import BrainData, DataLoaderHelper
 from ._plot_factory_helper import PlotFactoryHelper
 from ._layout_helper import LayoutBuilderHelper, LAYOUTS
 from ._app_controller_helper import AppControllerHelper
 from ._sample_data import SampleDataNDVar
-
-if TYPE_CHECKING:
-    from mne import VolVectorSourceEstimate
 
 
 class LiveNeuro:
@@ -115,7 +111,7 @@ class LiveNeuro:
 
     def __init__(
         self,
-        y: NDVar | VolVectorSourceEstimate | SampleDataNDVar | None = None,
+        y: NDVar | mne.VolVectorSourceEstimate | SampleDataNDVar | None = None,
         cmap: str | list = "YlOrRd",
         vmin: float | None = None,
         vmax: float | None = None,
@@ -126,7 +122,7 @@ class LiveNeuro:
         layout_mode: str = "horizontal",
         display_mode: str = "lyr",
         show_labels: bool = False,
-        src: MneSourceSpacesLike | None = None,
+        src: mne.SourceSpaces | None = None,
     ):
         """Initialize the visualization app and load data."""
         # Use regular Dash with modern Jupyter integration
@@ -204,7 +200,7 @@ class LiveNeuro:
 
         # Load data (data loader helper responsibility)
         if y is not None:
-            if self._data_loader.is_mne_vol_vector_source_estimate(y):
+            if isinstance(y, mne.VolVectorSourceEstimate):
                 brain_data = self._data_loader.load_mne_vol_vector_source_estimate(
                     y, src
                 )
