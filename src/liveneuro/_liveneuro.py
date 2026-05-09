@@ -169,9 +169,6 @@ class LiveNeuro:
         self.show_labels: bool = show_labels  # Control titles and legends display
         self.current_layout_config: dict[str, object] | None = None
 
-        # Initialize source space attributes
-        self.source_space: object | None = None
-        self.parcellation: object | None = None
         self.view_ranges: dict[str, dict[str, list[float]]] = {}
         self.global_vmin: float = 0.0
         self.global_vmax: float = 1.0
@@ -225,8 +222,6 @@ class LiveNeuro:
         self.butterfly_data = brain_data.butterfly_data
         self.source_coords = brain_data.source_coords
         self.time_values = brain_data.time_values
-        self.source_space = brain_data.source_space
-        self.parcellation = brain_data.parcellation
 
         # Calculate and store fixed axis ranges for each view to prevent size changes
         self.view_ranges = self._plot_factory.calculate_view_ranges(

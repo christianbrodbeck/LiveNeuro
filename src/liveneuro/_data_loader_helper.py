@@ -25,8 +25,6 @@ class BrainData:
     butterfly_data: np.ndarray  # Always (n_sources, n_times)
     source_coords: np.ndarray  # (n_sources, 3)
     time_values: np.ndarray  # (n_times,)
-    source_space: object | None
-    parcellation: object | None
 
 
 class DataLoaderHelper:
@@ -61,10 +59,6 @@ class DataLoaderHelper:
         source_coords = src_ndvar.source.coordinates  # (n_sources, 3)
         time_values = src_ndvar.time.times
 
-        # Source space and parcellation
-        source_space = src_ndvar.source
-        parcellation = getattr(source_space, "parc", None)
-
         # Compute norm for butterfly plot
         butterfly_data = np.linalg.norm(glass_brain_data, axis=1)
 
@@ -73,8 +67,6 @@ class DataLoaderHelper:
             butterfly_data=butterfly_data,
             source_coords=source_coords,
             time_values=time_values,
-            source_space=source_space,
-            parcellation=parcellation,
         )
 
     @staticmethod
@@ -98,10 +90,6 @@ class DataLoaderHelper:
         source_coords = source.coordinates
         time_values = y.time.times
 
-        # Source space and parcellation
-        source_space = source
-        parcellation = getattr(source_space, "parc", None)
-
         # Handle space dimension (vector data vs scalar data)
         if y.has_dim("space"):
             # Extract 3D vector data (n_sources, 3, n_times)
@@ -120,8 +108,6 @@ class DataLoaderHelper:
             butterfly_data=butterfly_data,
             source_coords=source_coords,
             time_values=time_values,
-            source_space=source_space,
-            parcellation=parcellation,
         )
 
     @staticmethod
@@ -175,8 +161,6 @@ class DataLoaderHelper:
             butterfly_data=butterfly_data,
             source_coords=source_coords,
             time_values=time_values,
-            source_space=src,
-            parcellation=None,
         )
 
     @staticmethod
