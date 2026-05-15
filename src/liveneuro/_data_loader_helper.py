@@ -137,8 +137,7 @@ class DataLoaderHelper:
             )
 
         glass_brain_data = DataLoaderHelper._get_mne_vector_data(stc)
-        vertices = DataLoaderHelper._normalize_mne_vertices(stc.vertices)
-        source_coords = DataLoaderHelper._source_coords_from_mne_src(vertices, src)
+        source_coords = DataLoaderHelper._source_coords_from_mne_src(stc.vertices, src)
         time_values = np.asarray(stc.times, dtype=float)
 
         if source_coords.shape[0] != glass_brain_data.shape[0]:
@@ -184,17 +183,6 @@ class DataLoaderHelper:
         )
 
     @staticmethod
-    def _normalize_mne_vertices(vertices: list[np.ndarray]) -> list[np.ndarray]:
-        """Normalize MNE vertex ids to one array per source space."""
-        normalized = [np.asarray(group, dtype=int) for group in vertices]
-        if not normalized or any(group.ndim != 1 for group in normalized):
-            raise ValueError(
-                "MNE VolVectorSourceEstimate vertices must be one-dimensional "
-                "arrays, or a list of one-dimensional arrays."
-            )
-        return normalized
-
-    @staticmethod
     def _source_coords_from_mne_src(
         vertex_groups: list[np.ndarray],
         src: mne.SourceSpaces,
@@ -219,24 +207,14 @@ class DataLoaderHelper:
     ) -> np.ndarray:
         """Map dense MNE vertex ids to source-space coordinates."""
         space = src[source_space_idx]
-        try:
-            rr = np.asarray(space["rr"], dtype=float)
-        except Exception as exc:
-            raise ValueError(
-                "Each MNE source space must provide an 'rr' array."
-            ) from exc
-
-        if rr.ndim != 2 or rr.shape[1] != 3:
-            raise ValueError(
-                "MNE source space 'rr' must have shape (n_vertices, 3), got "
-                f"{rr.shape}."
-            )
+        rr = space["rr"]
         if vertices.size == 0:
             return np.empty((0, 3), dtype=float)
+        # Fast path: volume STC vertices are already row indices into rr.
         if np.min(vertices) >= 0 and np.max(vertices) < rr.shape[0]:
             return rr[vertices]
 
-        vertno = None
+        # Some source spaces store sparse vertex ids in vertno; map them to rr rows.
         try:
             vertno = np.asarray(space.get("vertno"), dtype=int)
         except Exception:
@@ -247,6 +225,7 @@ class DataLoaderHelper:
             if all(int(vertex) in index_by_vertex for vertex in vertices):
                 return rr[[index_by_vertex[int(vertex)] for vertex in vertices]]
 
+        # Last-resort shape match: rr may already be trimmed to just these vertices.
         if rr.shape[0] == vertices.shape[0]:
             return rr
 
