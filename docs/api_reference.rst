@@ -28,7 +28,6 @@ Input Data Expectations
 
 * Eelbrain NDVar with dimensions: ``([case,] time, source, space)``
 * MNE ``VolVectorSourceEstimate`` with matching ``src`` SourceSpaces object
-* Space dimension: 3D components (Right, Anterior, Superior)
 * Built-in MNE sample data object returned by ``create_sample_brain_data()``
 
 **Scalar Data** (magnitude only):

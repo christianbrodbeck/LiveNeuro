@@ -318,56 +318,6 @@ class LiveNeuro:
 # Run the app when script is executed directly
 if __name__ == "__main__":
     try:
-        # Colormap options (default is 'YlOrRd' - white-background friendly):
-        # cmap = 'YlOrRd'        # Yellow → Orange → Red (DEFAULT, best for white background)
-        # cmap = 'OrRd'          # Orange → Red (good for white background)
-        # cmap = 'Reds'          # White → Red (minimal contrast)
-        # cmap = 'Viridis'       # Purple → Blue → Green → Yellow (perceptually uniform)
-        # cmap = 'Hot'           # Black → Red → Yellow → White (NOT recommended - obscures arrows)
-
-        # Example: Custom cmap (starts from white to avoid obscuring arrows)
-        # cmap = [
-        #     [0, "rgba(255,255,255,0.8)"],  # White with 80% opacity (low activity)
-        #     [0.5, "rgba(255,165,0,0.9)"],  # Orange with 90% opacity
-        #     [1, "rgba(255,0,0,1.0)"],  # Red with full opacity (high activity)
-        # ]
-
-        # Butterfly plot display options:
-        # show_max_only=False: Shows individual source traces + mean + max (default)
-        # show_max_only=True:  Shows only mean + max traces (cleaner view)
-
-        # Arrow threshold options:
-        # arrow_threshold=None: Show all arrows (default)
-        # arrow_threshold='auto': Show arrows with magnitude > 10% of max
-        # arrow_threshold=0.01: Show arrows with magnitude > 0.01 (custom threshold)
-
-        # Arrow scale options:
-        # arrow_scale=1.0: Default arrow length (good for most cases)
-        # arrow_scale=0.5: Half length (useful for dense or high-magnitude data)
-        # arrow_scale=2.0: Double length (useful for sparse or low-magnitude data)
-
-        # Method 1: Pass data directly using y parameter (same as plot.GlassBrain)
-        # from eelbrain import datasets
-        #
-        # # Load your data - NDVar with dimensions ([case,] time, source[, space])
-        # data_ds = datasets.get_mne_sample(src='vol', ori='vector')
-        # y = data_ds['src']  # NDVar with dimensions (case, time, source, space)
-        #
-        # # Create visualization with your data
-        # viz_2d = LiveNeuro(
-        #     y=y,  # Pass NDVar directly - same format as plot.GlassBrain
-        #     cmap=cmap,
-        #     show_max_only=False,
-        #     arrow_threshold='auto'  # Only show significant arrows
-        # )
-
-        # Method 1b: Pass an MNE volume vector source estimate with source space
-        # import mne
-        # stc = mne.read_source_estimate("example-vl.stc")
-        # src = mne.read_source_spaces("example-vol-src.fif")
-        # viz_2d = LiveNeuro(y=stc, src=src)
-
-        # Method 2: Use default MNE sample data with custom options
         viz_2d = LiveNeuro(
             cmap="Reds",
             show_max_only=False,
@@ -376,24 +326,9 @@ if __name__ == "__main__":
             display_mode="lzry",
             arrow_scale=0.5,  # Shorter arrows for better visibility
         )
-
-        # Example: Export plot images
-        # Uncomment the lines below to export images before running the app:
-        # result = viz_2d.export_images(
-        #     output_dir="./brain_images",
-        #     time_idx=10,  # Export plots for time index 10
-        #     format="png"  # Can be 'png', 'jpg', 'svg', 'pdf'
-        # )
-        # print("Export result:", result)
-
-        # For Jupyter notebooks, use:
-        # viz_2d._show_in_jupyter()
-
-        # For regular Python scripts or external browser:
         viz_2d.run()
-
-    except Exception as e:
-        print(f"Error starting 2D visualization app: {e}")
+    except Exception as error:
+        print(f"Error starting 2D visualization app: {error}")
         import traceback
 
         traceback.print_exc()
