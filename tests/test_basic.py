@@ -2,6 +2,7 @@
 Basic tests for liveneuro package.
 """
 
+import numpy as np
 import pytest
 
 
@@ -98,6 +99,93 @@ def test_viz_creation_with_options():
     assert viz.cmap == "Viridis"
     assert viz.show_max_only is True
     assert viz.arrow_threshold == "auto"
+
+
+def test_viz_creation_with_mne_vol_vector_source_estimate():
+    """Test creating visualization from an MNE VolVectorSourceEstimate."""
+    import mne
+    from liveneuro import LiveNeuro
+
+    stc = mne.VolVectorSourceEstimate(
+        np.arange(36, dtype=float).reshape(3, 3, 4),
+        vertices=[np.array([0, 2, 4])],
+        tmin=0.0,
+        tstep=0.1,
+    )
+
+    rr = np.array(
+        [
+            [-0.02, -0.01, 0.00],
+            [-0.01, 0.00, 0.01],
+            [0.00, 0.01, 0.02],
+            [0.01, 0.02, 0.03],
+            [0.02, 0.03, 0.04],
+        ]
+    )
+    src = mne.SourceSpaces([{"type": "vol", "rr": rr}])
+
+    with pytest.raises(ValueError, match="src is required"):
+        LiveNeuro(y=stc)
+
+    viz = LiveNeuro(y=stc, src=src, display_mode="ortho")
+
+    assert viz.glass_brain_data.shape == (3, 3, 4)
+    assert viz.butterfly_data.shape == (3, 4)
+    assert np.array_equal(viz.source_coords, rr[[0, 2, 4]])
+    assert np.allclose(viz.time_values, np.array([0.0, 0.1, 0.2, 0.3]))
+
+
+def test_tiny_mne_vectors_render_visible_arrows():
+    """Physically small MNE vectors should still produce visible arrows."""
+    import mne
+    from liveneuro import LiveNeuro
+
+    stc = mne.VolVectorSourceEstimate(
+        np.array(
+            [
+                [[1e-12, 1e-12], [0.0, 0.0], [0.0, 0.0]],
+                [[0.0, 0.0], [2e-12, 2e-12], [0.0, 0.0]],
+                [[3e-12, 3e-12], [0.0, 0.0], [0.0, 0.0]],
+            ]
+        ),
+        vertices=[np.array([0, 1, 2])],
+        tmin=0.0,
+        tstep=0.1,
+    )
+
+    rr = np.array(
+        [
+            [0.00, 0.00, 0.00],
+            [0.05, 0.00, 0.00],
+            [0.00, 0.05, 0.00],
+        ]
+    )
+    viz = LiveNeuro(
+        y=stc,
+        src=mne.SourceSpaces([{"type": "vol", "rr": rr}]),
+        display_mode="z",
+        arrow_threshold=None,
+    )
+
+    fig = viz._plot_factory.create_2d_brain_projections_plotly(time_idx=0)["axial"]
+    scatter_traces = [trace for trace in fig.data if trace.type == "scatter"]
+    segment_lengths = []
+    for trace in scatter_traces:
+        x_values = list(trace.x)
+        y_values = list(trace.y)
+        for i in range(len(x_values) - 1):
+            if x_values[i] is None or x_values[i + 1] is None:
+                continue
+            segment_lengths.append(
+                (
+                    (x_values[i + 1] - x_values[i]) ** 2
+                    + (y_values[i + 1] - y_values[i]) ** 2
+                )
+                ** 0.5
+            )
+
+    assert segment_lengths
+    assert max(segment_lengths) > 1e-3
 
 
 def test_main_class_import():

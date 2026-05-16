@@ -636,12 +636,18 @@ class PlotFactoryHelper:
             if vector_data is not None:
                 assert u_vectors is not None
                 assert v_vectors is not None
-                # Convert relative arrow_scale (user parameter, default=1.0) to absolute scale
-                # Base scale of 0.025 provides good default visualization
-                arrow_scale = self._viz.arrow_scale * 0.025
 
                 # Calculate arrow magnitudes for filtering
                 arrow_magnitudes = np.linalg.norm(vector_data, axis=1)
+                max_arrow_magnitude = float(np.max(arrow_magnitudes))
+                view_span = max(
+                    float(np.max(x_coords) - np.min(x_coords)),
+                    float(np.max(y_coords) - np.min(y_coords)),
+                )
+                if max_arrow_magnitude == 0:
+                    arrow_scale = 0.0
+                else:
+                    arrow_scale = self._viz.arrow_scale * 0.05 * view_span / max_arrow_magnitude
 
                 # Determine threshold for showing arrows
                 if self._viz.arrow_threshold is None:
@@ -649,7 +655,7 @@ class PlotFactoryHelper:
                     show_arrow_mask = np.ones(vector_data.shape[0], dtype=np.bool_)
                 elif self._viz.arrow_threshold == "auto":
                     # Use 10% of maximum magnitude as threshold
-                    threshold_value = 0.1 * np.max(arrow_magnitudes)
+                    threshold_value = 0.1 * max_arrow_magnitude
                     show_arrow_mask = arrow_magnitudes > threshold_value
                 else:
                     # Use specified threshold
@@ -659,7 +665,7 @@ class PlotFactoryHelper:
                 # Group sources by 2D position and select the one with maximum ACTIVITY
                 # (not 2D projected magnitude) for each position.
                 # Multiple 3D sources can project to the same 2D position, so we need
-                # to select one. We choose the source with highest activity because
+                # to select one. We choose the source with the highest activity because
                 # that's what we display in the hover and heatmap.
                 position_to_max_idx: dict[tuple[float, float], int] = {}
 
@@ -688,7 +694,7 @@ class PlotFactoryHelper:
                         position_to_max_idx[pos_key] = i
 
                 # OPTIMIZED BATCH ARROW RENDERING
-                if position_to_max_idx:
+                if position_to_max_idx and arrow_scale > 0:
                     # Extract arrow data for selected sources
                     selected_indices = list(position_to_max_idx.values())
                     arrow_x = x_coords[selected_indices]
@@ -746,7 +752,7 @@ class PlotFactoryHelper:
                                 )
                             else:
                                 threshold_value = float(self._viz.arrow_threshold)
-                            show_selected_arrow = (
+                            show_selected_arrow = bool(
                                 selected_arrow_magnitude > threshold_value
                             )
 

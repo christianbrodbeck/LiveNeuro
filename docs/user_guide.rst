@@ -395,6 +395,49 @@ For your own data:
 * Scalar data: ``([case,] time, source)``
 * If case dimension present: mean is computed automatically
 
+Using MNE VolVectorSourceEstimate
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For MNE volume vector source estimates, pass the source estimate together with
+the matching source space. The source estimate provides vector data and time
+values; the source space provides the 3D coordinates needed for projections.
+
+.. code-block:: python
+
+   from pathlib import Path
+
+   import mne
+   from mne.minimum_norm import apply_inverse, read_inverse_operator
+
+   from liveneuro import LiveNeuro
+
+   sample_dir = Path(mne.datasets.sample.data_path())
+   data_dir = sample_dir / "MEG" / "sample"
+   subjects_dir = sample_dir / "subjects"
+
+   evoked = mne.read_evokeds(
+       data_dir / "sample_audvis-ave.fif",
+       condition="Left Auditory",
+       baseline=(None, 0),
+       proj=True,
+   )
+
+   inverse_operator = read_inverse_operator(
+       data_dir / "sample_audvis-meg-vol-7-meg-inv.fif"
+   )
+   stc = apply_inverse(
+       evoked,
+       inverse_operator,
+       lambda2=1.0 / 9.0,
+       method="MNE",
+       pick_ori="vector",
+   )
+   src = mne.read_source_spaces(
+       subjects_dir / "sample" / "bem" / "volume-7mm-src.fif"
+   )
+
+   viz = LiveNeuro(y=stc, src=src)
+
 
 Running the Application
 -----------------------
