@@ -124,28 +124,15 @@ def test_viz_creation_with_mne_vol_vector_source_estimate():
     )
     src = mne.SourceSpaces([{"type": "vol", "rr": rr}])
 
+    with pytest.raises(ValueError, match="src is required"):
+        LiveNeuro(y=stc)
+
     viz = LiveNeuro(y=stc, src=src, display_mode="ortho")
 
     assert viz.glass_brain_data.shape == (3, 3, 4)
     assert viz.butterfly_data.shape == (3, 4)
     assert np.array_equal(viz.source_coords, rr[[0, 2, 4]])
     assert np.allclose(viz.time_values, np.array([0.0, 0.1, 0.2, 0.3]))
-
-
-def test_mne_vol_vector_source_estimate_requires_src():
-    """MNE source estimates need source spaces for source coordinates."""
-    import mne
-    from liveneuro import LiveNeuro
-
-    stc = mne.VolVectorSourceEstimate(
-        np.zeros((2, 3, 3)),
-        vertices=[np.array([0, 1])],
-        tmin=0.0,
-        tstep=0.1,
-    )
-
-    with pytest.raises(ValueError, match="src is required"):
-        LiveNeuro(y=stc)
 
 
 def test_tiny_mne_vectors_render_visible_arrows():
