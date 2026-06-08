@@ -51,6 +51,12 @@ jobs:
         # Test that the package can be imported after installation
         python -c "from liveneuro import LiveNeuro, create_sample_brain_data; print('Package imports successful!')"
 
+    - name: Cache MNE datasets
+      uses: actions/cache@v3
+      with:
+        path: ~/mne_data
+        key: mne-data
+
     - name: Run fast tests (Linux)
       if: runner.os == 'Linux'
       run: |
